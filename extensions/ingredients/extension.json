@@ -1,0 +1,9 @@
+{
+  "id": "ingredients",
+  "name": "Ingredients",
+  "srcdoc": "extension.html",
+  "fieldTypes": [
+    "Object"
+  ],
+  "parameters": {}
+}

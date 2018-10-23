@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <!-- UI Extensions CSS -->
+  <link rel="stylesheet" href="https://contentful.github.io/ui-extensions-sdk/cf-extension.css">
+  <!-- UI Extensions SDK -->
+  <script src="https://unpkg.com/contentful-ui-extensions-sdk@3"></script>
+  <style>
+    .cf-form-field {
+      padding-left: 1rem;
+    }
+
+    .step-input {
+      padding-left: 1rem;
+    }
+
+    .step-input + .step-input {
+      margin-top: 1rem;
+    }
+
+    .cf-form-input {
+      height: auto;
+      padding-bottom: 0.5rem;
+    }
+    
+    .btn-link {
+      align-items: center;
+      background: none;
+      border: none;
+      color: #1683d0;
+      cursor: pointer;
+      display: flex;
+      font-size: 14px;
+      margin-top: -1rem;
+      padding: 0;
+      text-decoration: underline;
+    }
+
+    .btn-link:hover {
+
+    }
+
+    .btn-link__icon {
+      display: flex;
+      margin-right: 0.4em
+    }
+
+    .btn-link__icon svg {
+      fill: #1683d0;
+      height: 18px;
+      width: 18px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Custom markup of the UI Extension -->
+  <ol class="cf-form-field">
+    <li class="step-input" data-row="0">
+      <textarea class="cf-form-input" type="text" placeholder="instructions"></textarea>
+    </li>
+  </ol>
+
+  <!-- Custom logic of the UI Extension -->
+  <script>
+    'use strict';
+
+    window.contentfulExtension.init(initExtension);
+
+    function initExtension (extensionsApi) {
+      extensionsApi.window.startAutoResizer();
+
+      var stepInputs = [];
+      
+			var inputs = document.querySelectorAll('.cf-form-input');
+      var container = document.querySelector('.cf-form-field');
+      container.insertAdjacentHTML('afterend', '<button class="add-new-row btn-link"><cf-icon name="add" ng-if="canAddNew" class="btn-link__icon"><svg height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"></path><path d="M0 0h24v24H0z" fill="none"></path></svg></cf-icon> New row</button>');
+
+      document
+        .querySelector('.add-new-row')
+        .addEventListener('click', insertRow);
+
+      inputs.forEach(input => {
+        input.addEventListener('input', onInputChange);
+      });
+
+      //  The field this UI Extension is assigned to.
+      var field = extensionsApi.field;
+
+      // Callback for changes of the field value.
+      var detachValueChangeHandler = field.onValueChanged(valueChangeHandler);
+
+      // Handle DOM "onbeforeunload" event.
+      window.addEventListener('onbeforeunload', unloadHandler);
+
+      // Handler for external field value changes (e.g. when multiple authors are working on the same entry).
+      function valueChangeHandler (value) {
+        if (value === undefined) return;
+
+        if (stepInputs[0] == null) {
+          initialiseValue(value);
+        }
+
+        if (getNumInputs() < value.length) {
+          populateRows(value.length);
+        }
+
+        value.forEach(function(row, index) {
+          if (row == null) return;
+
+          setValue(index, row);
+        });
+      }
+
+      function setValue (rowIndex, value) {
+        document.querySelector('li[data-row="' + rowIndex +'"] textarea').value = value;
+      }
+
+      function initialiseValue (value) {
+        stepInputs = value;
+        console.log('initialised', value, stepInputs);
+      }
+
+      function populateRows (numRows) {
+        var newIndex = getNumInputs();
+        while (newIndex < numRows) {
+          insertRow(newIndex);
+          newIndex++;
+        }
+      }
+
+      function getNewRow (newIndex) {
+        var newTextField = '<textarea class="cf-form-input" type="text" placeholder="instructions"></textarea>';
+        return '<li class="step-input" data-row="'+newIndex+'">' + newTextField + '</li>';
+      }
+
+      function getNumInputs () {
+        return document.querySelectorAll('.step-input').length;
+      }
+
+      function insertRow () {
+        var newIndex = getNumInputs();
+        const newRow = getNewRow(newIndex);
+        container.insertAdjacentHTML('beforeend', newRow);
+
+        var newInputs = document.querySelectorAll('li[data-row="'+newIndex+'"] .cf-form-input');
+        newInputs.forEach(input => {
+          input.addEventListener('input', onInputChange);
+        });
+      }
+      
+      function isValid (value) {
+        var isValid = true;
+        
+        if (typeof value !== 'string' || value === '') {
+          isValid = false;
+        }
+        
+        return isValid;
+      }
+      
+      function getRow (input) {
+       	return input.parentNode;
+      }
+      
+      function getText(row) {
+       	return row.querySelector('.cf-form-input');
+      }
+
+      function updateRow(rowNumber, value) {
+        console.log('update row', rowNumber, value, stepInputs);
+        stepInputs[rowNumber] = value;
+        console.log(stepInputs);
+        field.setValue(stepInputs);
+      }
+      
+      // Event handler for keyboard input.
+      function onInputChange (event) {
+        console.log(event, event.target)
+        var row = getRow(event.target);
+        var rowNumber = row.getAttribute('data-row');
+        var text = getText(row).value || '';
+
+        if (!isValid(text)) {
+          updateRow(rowNumber, '');
+        }
+        else {
+          updateRow(rowNumber, text);
+        }
+      }
+
+      function unloadHandler () {
+        window.removeEventListener('onbeforeunload', unloadHandler);
+        document
+          .querySelectorAll('.cf-form-input')
+          .forEach(function(input) {
+            input.removeEventListener('input', onInputChange);
+          });
+
+        detachValueChangeHandler();
+      }
+    }
+  </script>
+</body>
+</html>

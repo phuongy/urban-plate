@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <!-- UI Extensions CSS -->
+  <link rel="stylesheet" href="https://contentful.github.io/ui-extensions-sdk/cf-extension.css">
+  <!-- UI Extensions SDK -->
+  <script src="https://unpkg.com/contentful-ui-extensions-sdk@3"></script>
+  <style>
+    .ingredient-grouped-input {
+      display: flex;
+    }
+
+    .ingredient-grouped-input + .ingredient-grouped-input {
+      margin-top: 1rem;
+    }
+    
+    .ingredient-quantity {
+      flex: 0 0 80px;
+      margin-right: 1rem;
+    }
+    
+    .ingredient-name {
+     	flex: 1;
+    }
+
+    .btn-link {
+      align-items: center;
+      background: none;
+      border: none;
+      color: #1683d0;
+      cursor: pointer;
+      display: flex;
+      font-size: 14px;
+      margin-top: -1rem;
+      padding: 0;
+      text-decoration: underline;
+    }
+
+    .btn-link:hover {
+
+    }
+
+    .btn-link__icon {
+      display: flex;
+      margin-right: 0.4em
+    }
+
+    .btn-link__icon svg {
+      fill: #1683d0;
+      height: 18px;
+      width: 18px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Custom markup of the UI Extension -->
+  <div class="cf-form-field">
+    <div class="ingredient-grouped-input" data-row="0">
+      <div class="ingredient-quantity">
+        <input class="ingredient-quantity_input cf-form-input" data-field="quantity" type="text" placeholder="Qty">
+      </div>
+      <div class="ingredient-name">
+        <input class="ingredient-name_input cf-form-input" data-field="name" type="text" placeholder="Item">
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom logic of the UI Extension -->
+  <script>
+    'use strict';
+
+    window.contentfulExtension.init(initExtension);
+
+    function initExtension (extensionsApi) {
+      extensionsApi.window.startAutoResizer();
+
+      var groupedInputs = [
+        {
+            name: '',
+            quantity: ''
+        }
+      ];
+      
+			var inputs = document.querySelectorAll('.cf-form-input');
+      var container = document.querySelector('.cf-form-field');
+      container.insertAdjacentHTML('afterend', '<button class="add-new-row btn-link"><cf-icon name="add" ng-if="canAddNew" class="btn-link__icon"><svg height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"></path><path d="M0 0h24v24H0z" fill="none"></path></svg></cf-icon> New row</button>');
+
+      document
+        .querySelector('.add-new-row')
+        .addEventListener('click', insertRow);
+
+      inputs.forEach(input => {
+        input.addEventListener('input', onInputChange);
+      });
+
+      //  The field this UI Extension is assigned to.
+      var field = extensionsApi.field;
+
+      // Callback for changes of the field value.
+      var detachValueChangeHandler = field.onValueChanged(valueChangeHandler);
+
+      // Handle DOM "onbeforeunload" event.
+      window.addEventListener('onbeforeunload', unloadHandler);
+
+      // Handler for external field value changes (e.g. when multiple authors are working on the same entry).
+      function valueChangeHandler (value) {
+        if (value === undefined) return;
+
+        if (groupedInputs[0].name === '') {
+          initialiseValue(value);
+        }
+
+        if (getNumInputs() < value.length) {
+          populateRows(value.length);
+        }
+
+        value.forEach(function(row, index) {
+          if (row == null) return;
+
+          var name = row.name || '';
+          var quantity = row.quantity || '';
+
+          setRowName(index, name);
+          setRowQuantity(index, quantity);
+        });
+      }
+
+      function setRowName (rowIndex, value) {
+        document.querySelector('div[data-row="' + rowIndex +'"] input[data-field="name"]').value = value;
+      }
+
+      function setRowQuantity (rowIndex, value) {
+        document.querySelector('div[data-row="' + rowIndex +'"] input[data-field="quantity"]').value = value;
+      }
+
+      function initialiseValue (value) {
+        groupedInputs = value;
+      }
+
+      function populateRows (numRows) {
+        var newIndex = getNumInputs();
+        while (newIndex < numRows) {
+          insertRow(newIndex);
+          newIndex++;
+        }
+      }
+
+      function getNewRow (newIndex) {
+        var newQuantityField = '<div class="ingredient-quantity"><input class="ingredient-quantity_input cf-form-input" data-field="quantity" type="text" placeholder="Qty"></div>';
+        var newIngredientField = '<div class="ingredient-name"><input class="ingredient-name_input cf-form-input" data-field="name" type="text" placeholder="Item"></div>';
+        return '<div class="ingredient-grouped-input" data-row="'+newIndex+'">' + newQuantityField + newIngredientField + '</div>';
+      }
+
+      function getNumInputs () {
+        return document.querySelectorAll('.ingredient-grouped-input').length;
+      }
+
+      function insertRow () {
+        var newIndex = getNumInputs();
+        const newRow = getNewRow(newIndex);
+        container.insertAdjacentHTML('beforeend', newRow);
+
+        var newInputs = document.querySelectorAll('div[data-row="'+newIndex+'"] .cf-form-input');
+        newInputs.forEach(input => {
+          input.addEventListener('input', onInputChange);
+        });
+      }
+      
+      function isValid (value) {
+        var isValid = true;
+        
+        if (typeof value !== 'string' || value === '') {
+          isValid = false;
+        }
+        
+        return isValid;
+      }
+      
+      function getRow (input) {
+       	return input.parentNode.parentNode;
+      }
+      
+      function getName(row) {
+        return row.querySelector('input[data-field="name"]');
+      }
+      
+      function getQuantity(row) {
+       	return row.querySelector('input[data-field="quantity"]');
+      }
+
+      function updateRow(rowNumber, value) {
+        groupedInputs[rowNumber] = value;
+        field.setValue(groupedInputs);
+      }
+      
+      // Event handler for keyboard input.
+      function onInputChange (event) {
+        var row = getRow(event.target);
+        var rowNumber = row.getAttribute('data-row');
+        var quantity = getQuantity(row).value || '';
+        var name = getName(row).value || '';
+
+        if (!isValid(quantity) && !isValid(name)) {
+          updateRow(rowNumber, {});
+        }
+        else {
+          if (isValid(quantity) && !isValid(name)) {
+            updateRow(rowNumber, { quantity: quantity });
+          }
+          else if(!isValid(quantity) && isValid(name)) {
+            updateRow(rowNumber, { name: name });
+          }
+          else {
+            updateRow(rowNumber, { quantity: quantity, name: name});
+          }
+        }
+      }
+
+      function unloadHandler () {
+        window.removeEventListener('onbeforeunload', unloadHandler);
+        document
+          .querySelectorAll('.cf-form-input')
+          .forEach(function(input) {
+            input.removeEventListener('input', onInputChange);
+          });
+
+        detachValueChangeHandler();
+      }
+    }
+  </script>
+</body>
+</html>

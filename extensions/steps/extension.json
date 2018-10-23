@@ -1,0 +1,9 @@
+{
+  "id": "steps",
+  "name": "Steps",
+  "srcdoc": "extension.html",
+  "fieldTypes": [
+    "Object"
+  ],
+  "parameters": {}
+}
